@@ -1,0 +1,8 @@
+{
+  "id": "pdf-character-sheet",
+  "name": "PDF Character Sheet Viewer",
+  "description": "Allows you to attach and open PDF character sheets in popup windows.",
+  "version": "1.1.0",
+  "manifest_version": 1,
+  "entry": "index.html"
+}

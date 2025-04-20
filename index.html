@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PDF Character Sheets</title>
+  <script src="https://unpkg.com/@owlbear/extension@latest"></script>
+  <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0.5em;
+    }
+    #controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5em;
+      gap: 0.5em;
+    }
+    #viewerContainer {
+      height: 75vh;
+      overflow: auto;
+      border: 1px solid #ccc;
+      padding: 0.5em;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <select id="characterSelect"></select>
+    <input type="file" id="fileInput" accept="application/pdf">
+    <div>
+      <button id="prevPage">⬅️</button>
+      <span id="pageInfo">Page 1</span>
+      <button id="nextPage">➡️</button>
+    </div>
+    <div>
+      <button id="zoomOut">➖</button>
+      <span id="zoomLevel">100%</span>
+      <button id="zoomIn">➕</button>
+    </div>
+  </div>
+  <div id="viewerContainer">
+    <canvas id="pdfCanvas"></canvas>
+  </div>
+
+  <script type="module">
+    import { defineExtension } from 'https://unpkg.com/@owlbear/extension@latest/dist/index.mjs';
+
+    defineExtension({
+      id: 'pdf-character-sheet',
+      name: 'PDF Character Sheet Viewer',
+      async setup(ctx) {
+        const characterMap = new Map(); // characterId -> { pdfData, pdfDoc }
+        let currentPdf = null;
+        let currentPage = 1;
+        let currentScale = 1.0;
+
+        const canvas = document.getElementById('pdfCanvas');
+        const ctx2d = canvas.getContext('2d');
+
+        const characterSelect = document.getElementById('characterSelect');
+        const fileInput = document.getElementById('fileInput');
+        const prevBtn = document.getElementById('prevPage');
+        const nextBtn = document.getElementById('nextPage');
+        const zoomOutBtn = document.getElementById('zoomOut');
+        const zoomInBtn = document.getElementById('zoomIn');
+        const pageInfo = document.getElementById('pageInfo');
+        const zoomLevel = document.getElementById('zoomLevel');
+
+        function renderPage(pageNum) {
+          if (!currentPdf) return;
+          currentPdf.getPage(pageNum).then((page) => {
+            const viewport = page.getViewport({ scale: currentScale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderCtx = {
+              canvasContext: ctx2d,
+              viewport
+            };
+            page.render(renderCtx);
+            pageInfo.textContent = `Page ${pageNum} of ${currentPdf.numPages}`;
+            zoomLevel.textContent = `${Math.round(currentScale * 100)}%`;
+          });
+        }
+
+        function loadCharacterPdf(charId) {
+          const data = characterMap.get(charId);
+          if (!data) return;
+          const loadingTask = pdfjsLib.getDocument({ data: data.pdfData });
+          loadingTask.promise.then((pdfDoc) => {
+            currentPdf = pdfDoc;
+            currentPage = 1;
+            currentScale = 1.0;
+            characterMap.set(charId, { ...data, pdfDoc });
+            renderPage(currentPage);
+          });
+        }
+
+        fileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file && characterSelect.value) {
+            const reader = new FileReader();
+            reader.onload = function () {
+              const arrayBuffer = reader.result;
+              characterMap.set(characterSelect.value, { pdfData: arrayBuffer });
+              loadCharacterPdf(characterSelect.value);
+            };
+            reader.readAsArrayBuffer(file);
+          }
+        });
+
+        characterSelect.addEventListener('change', () => {
+          const charId = characterSelect.value;
+          loadCharacterPdf(charId);
+        });
+
+        prevBtn.addEventListener('click', () => {
+          if (currentPdf && currentPage > 1) {
+            currentPage--;
+            renderPage(currentPage);
+          }
+        });
+
+        nextBtn.addEventListener('click', () => {
+          if (currentPdf && currentPage < currentPdf.numPages) {
+            currentPage++;
+            renderPage(currentPage);
+          }
+        });
+
+        zoomOutBtn.addEventListener('click', () => {
+          if (currentPdf) {
+            currentScale = Math.max(0.5, currentScale - 0.1);
+            renderPage(currentPage);
+          }
+        });
+
+        zoomInBtn.addEventListener('click', () => {
+          if (currentPdf) {
+            currentScale = Math.min(3.0, currentScale + 0.1);
+            renderPage(currentPage);
+          }
+        });
+
+        // Show extension modal
+        ctx.ui.toolbarButton({
+          icon: '📄',
+          label: 'Character Sheets',
+          onClick: async () => {
+            await ctx.ui.showModal({
+              title: 'Character Sheet Viewer',
+              size: 'large',
+              content: document.body
+            });
+          }
+        });
+
+        // Load all characters into dropdown
+        const characters = await ctx.party.getAllCharacters();
+        for (const character of characters) {
+          const option = document.createElement('option');
+          option.value = character.id;
+          option.textContent = character.name;
+          characterSelect.appendChild(option);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

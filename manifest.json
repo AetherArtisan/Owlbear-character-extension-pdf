@@ -1,8 +1,11 @@
 {
   "id": "pdf-character-sheet",
   "name": "PDF Character Sheet Viewer",
-  "description": "Allows you to attach and open PDF character sheets in popup windows.",
-  "version": "1.1.0",
+  "description": "Attach and view PDF character sheets via popup inside Owlbear Studio.",
+  "version": "1.0.0",
   "manifest_version": 1,
-  "entry": "index.html"
+  "entry": "index.html",
+  "scripts": [],
+  "styles": []
 }
+
